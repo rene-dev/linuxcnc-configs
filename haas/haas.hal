@@ -1,0 +1,158 @@
+# ###################################
+# Core EMC/HAL Loads
+# ###################################
+
+# kinematics
+loadrt [KINS]KINEMATICS
+
+# motion controller, get name and thread periods from ini file
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JOINTS num_dio=64
+
+# hostmot2 driver
+loadrt hostmot2
+#debug_idrom=1 debug_module_descriptors=1 debug_pin_descriptors=1 debug_modules=1
+
+# load low-level driver
+loadrt [HOSTMOT2](DRIVER) config=[HOSTMOT2](CONFIG)
+
+# load estop latch component
+loadrt estop_latch
+loadrt near
+loadrt not
+loadrt scale
+loadrt carousel pockets=20 encoding=index num_sense=1 dir=2	
+loadrt conv_float_s32
+loadrt or2
+
+# ################################################
+# THREADS
+# ################################################
+
+addf hm2_[HOSTMOT2](BOARD).0.read         servo-thread
+addf motion-command-handler               servo-thread
+addf motion-controller                    servo-thread
+# revel in the free time here from not having to run PID
+addf hm2_[HOSTMOT2](BOARD).0.write        servo-thread
+addf estop-latch.0                        servo-thread
+addf near.0                        servo-thread
+addf not.0                        servo-thread
+addf scale.0                        servo-thread
+addf carousel.0                        servo-thread
+addf or2.0                        servo-thread
+addf conv-float-s32.0                     servo-thread
+
+# X [0] Axis
+net xenable joint.0.amp-enable-out => hm2_7i92.0.stbl.1.2.enable
+net xfault  joint.0.amp-fault-in   <= hm2_7i92.0.stbl.1.2.fault
+net xpos    joint.0.motor-pos-cmd  => hm2_7i92.0.stbl.1.2.pos_cmd
+net xvel    joint.0.vel-cmd        => hm2_7i92.0.stbl.1.2.vel_cmd
+net xposfb  joint.0.motor-pos-fb   <= hm2_7i92.0.stbl.1.2.pos_fb
+net xindex  joint.0.index-enable  <=> hm2_7i92.0.stbl.1.2.index_enable
+net xhome   joint.0.home-sw-in     <= hm2_7i92.0.stbl.1.2.in-00-not
+# Y [1] Axis
+net yenable joint.1.amp-enable-out => hm2_7i92.0.stbl.1.1.enable
+net yfault  joint.1.amp-fault-in   <= hm2_7i92.0.stbl.1.1.fault
+net ypos    joint.1.motor-pos-cmd  => hm2_7i92.0.stbl.1.1.pos_cmd
+net yvel    joint.1.vel-cmd        => hm2_7i92.0.stbl.1.1.vel_cmd
+net yposfb  joint.1.motor-pos-fb   <= hm2_7i92.0.stbl.1.1.pos_fb
+net yindex  joint.1.index-enable  <=> hm2_7i92.0.stbl.1.1.index_enable
+net yhome   joint.1.home-sw-in     <= hm2_7i92.0.stbl.1.1.in-00-not
+# Z [2] Axis
+net zenable joint.2.amp-enable-out => hm2_7i92.0.stbl.1.0.enable
+net zfault  joint.2.amp-fault-in   <= hm2_7i92.0.stbl.1.0.fault
+net zpos    joint.2.motor-pos-cmd  => hm2_7i92.0.stbl.1.0.pos_cmd
+net zvel    joint.2.vel-cmd        => hm2_7i92.0.stbl.1.0.vel_cmd
+net zposfb  joint.2.motor-pos-fb   <= hm2_7i92.0.stbl.1.0.pos_fb
+net zindex  joint.2.index-enable  <=> hm2_7i92.0.stbl.1.0.index_enable
+net zhome   joint.2.home-sw-in     <= hm2_7i92.0.stbl.1.0.in-00-not
+
+# C [3] Axis
+net cenable joint.3.amp-enable-out => hm2_7i92.0.stbl.1.3.enable
+net cfault  joint.3.amp-fault-in   <= hm2_7i92.0.stbl.1.3.fault
+#net cpos    joint.3.motor-pos-cmd  => hm2_7i92.0.stbl.1.3.pos_cmd
+#net cposfb  joint.3.motor-pos-fb   <= hm2_7i92.0.stbl.1.3.pos_fb
+
+#spindle
+
+net srps    spindle.0.speed-out-rps => hm2_7i92.0.stbl.1.3.vel_cmd
+net sindex  spindle.0.index-enable <=> hm2_7i92.0.stbl.1.3.index_enable
+net sposfb  spindle.0.revs         <=  hm2_7i92.0.stbl.1.3.pos_fb
+net svelfb  spindle.0.speed-in     <=  hm2_7i92.0.stbl.1.3.vel_fb
+net svelfb  hm2_7i92.0.stbl.1.3.vel_fb
+net svelfb => scale.0.in
+net svelfb-rpm <= scale.0.out
+setp scale.0.gain 60
+
+setp near.0.difference 2
+net srps => near.0.in1
+net svelfb => near.0.in2
+net atspeed near.0.out => spindle.0.at-speed
+
+net toolrelease-both or2.0.out => hm2_7i92.0.stbl.1.3.out-00
+net sdclink <= hm2_7i92.0.stbl.1.3.out-02
+net mist iocontrol.0.coolant-mist => hm2_7i92.0.stbl.1.2.out-00
+#net flood => iocontrol.0.coolant-flood
+
+net ssreset => not.0.in
+net ssresetn not.0.out => hm2_7i92.0.sserial.port-1.run
+
+#############
+#spindel sensors
+#blau == spindel ungeklemmt   stbl4 in 0
+#orange == spindel orientiert stbl4 in 1
+#diag panel todo:
+#air
+#tool fwd
+#tool rev
+#tool pos
+#shuttle in/out
+#drive status
+#probe status
+#release, relesse switch
+#############
+#set toolchanger voltage
+setp hm2_7i92.0.stbl.1.4.vel_cmd 200
+net cfwd carousel.0.motor-fwd => hm2_7i92.0.stbl.1.4.out-02
+net crev carousel.0.motor-rev => hm2_7i92.0.stbl.1.4.out-03
+net cidx carousel.0.sense-0 <= hm2_7i92.0.7i84.1.5.input-02-not
+net cpuls carousel.0.sense-1 <= hm2_7i92.0.7i84.1.5.input-03-not
+net spindle_lock motion.digital-out-02 => hm2_7i92.0.stbl.1.2.out-01
+net spindle_lock_fb motion.digital-in-04 <= hm2_7i92.0.stbl.1.4.in-01
+net toolrelease_fb motion.digital-in-05 <= hm2_7i92.0.stbl.1.4.in-00
+net toolrelease-auto or2.0.in1 motion.digital-out-03
+net changerpos <= carousel.0.current-position
+
+net cactive carousel.0.active => motion.digital-in-03
+net cen carousel.0.enable <= motion.digital-out-04
+
+net cpnumber motion.analog-out-00 => conv-float-s32.0.in
+net cpnumbers32 conv-float-s32.0.out => carousel.0.pocket-number
+
+net shin  motion.digital-out-00 => hm2_7i92.0.stbl.1.4.out-00
+net shout motion.digital-out-01 => hm2_7i92.0.stbl.1.4.out-01
+net shinfb motion.digital-in-00 <= hm2_7i92.0.7i84.1.5.input-00-not
+net shoutfb motion.digital-in-01 <= hm2_7i92.0.7i84.1.5.input-01-not
+#############
+net probe hm2_7i92.0.7i84.1.5.input-29-not => motion.probe-input
+net lube spindle.0.on hm2_7i92.0.stbl.1.2.out-02
+
+# ##################################################
+# Standard I/O Block - EStop, Etc
+# ##################################################
+
+# A basic estop loop that only includes the hostmot watchdog.
+net user-enable iocontrol.0.user-request-enable => estop-latch.0.reset
+net enable-latch estop-latch.0.ok-out => iocontrol.0.emc-enable-in
+net watchdog hm2_[HOSTMOT2](BOARD).0.watchdog.has_bit => estop-latch.0.fault-in
+
+# create signals for tool loading loopback
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare => iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change => iocontrol.0.tool-changed
+
+#loadusr -W hal_manualtoolchange
+#net tool-change iocontrol.0.tool-change => hal_manualtoolchange.change
+#net tool-changed iocontrol.0.tool-changed <= hal_manualtoolchange.changed
+#net tool-number iocontrol.0.tool-prep-number => hal_manualtoolchange.number
+#net tool-prep-loop iocontrol.0.tool-prepare => iocontrol.0.tool-prepared

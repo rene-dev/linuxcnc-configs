@@ -1,0 +1,22 @@
+O<toolprobe> sub
+
+o110 if [#5400 EQ 0] (check if tool is selected)
+ (DEBUG,No Tool selected)
+ o<toolprobe> return
+o110 endif
+g90 g40 g49 (abs comp off cancel comp)
+g53 g1 f6000 z-150 (move to top)
+#<first> = [#5422] (save position)
+g53 g1 f6000 x506 y322 (move to tool sensor)
+G91 G38.2 F1000 Z-310 (probe fast)
+G91 G0 Z1 (go up)
+G91 G38.2 F100 Z-2 (probe again)
+#<second> = [#5422] (save second position)
+#<len> = [#<second>-#<first>+378.24] (calculate length)
+(DEBUG,len: #<len>)
+G90 G0 Z[#5063+10] (go up)
+G10 L1 P#5400 Z[#<len>] (save length to tool table)
+
+O<toolprobe> endsub
+m2 (end)
+

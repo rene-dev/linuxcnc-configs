@@ -1,0 +1,224 @@
+O<m6> sub
+
+    #<feed> = 12000
+    #<lower_change_pos> = -110.676
+    ; =======================================================================================================
+
+    (PRINT, Change reports : tool_in_spindle = #<tool_in_spindle>)
+    (PRINT, Change reports : current_pocket  = #<current_pocket> )
+    (PRINT, Change reports : selected_tool   = #<selected_tool> )
+    (PRINT, Change reports : selected_pocket = #<selected_pocket>)
+
+    ; we must execute this only in the milltask interpreter
+    ; or preview will break, so test for '#<_task>' which is 1 for 
+    ; the milltask interpreter and 0 in the UI's
+    O<is_milltask> if [#<_task> EQ 0]
+        (PRINT, Change reports : Task ist Null)
+		M66 P0 L0
+        O<m6>  return [999]
+    O<is_milltask> endif
+
+    O<m_code_check_tool_number> if [ #<tool_in_spindle> LT 0 ]
+        (DEBUG, Tool Nummer = #<tool_in_spindle>)
+        (PRINT, bitte richtiges Werkzeug mit M61 Q? setzen)
+		M66 P0 L0
+        O<m6> return [-100]
+    O<m_code_check_tool_number> endif
+
+    ; =======================================================================================================
+
+    ; Check if the old tool number = the new tool number
+    ; in that case a change is not needed
+    O<m_code_alt_neu> if [[#<selected_tool>] EQ [#<tool_in_spindle>]]
+        (MSG, Kein Werkzeugwechsel erforderlich, da gleiches Werkzeug)
+		M66 P0 L0
+        O<m6> return [1]
+    O<m_code_alt_neu> endif
+
+    ; =======================================================================================================
+    ; Shutle not parked
+    (read in 0 to check shuttle)
+    M66 p1 l0
+    O<shuttle_parked> if[#5399 EQ 0]
+        (PRINT, shuttle not parked)
+		M66 P0 L0
+        O<m6> return [-101]
+    O<shuttle_parked> endif
+
+    ; =======================================================================================================
+
+    (read in 5 to check tool clamp)
+    M66 P5 L0
+    O<check_tool_clamp> if[#5399 EQ 0]
+        (PRINT, tool clamp check fail)
+		M66 P0 L0
+        O<m6> return [-102]
+    O<check_tool_clamp> endif
+
+    ; =======================================================================================================
+
+    ; Stop spindle
+    M5    
+
+    ; =======================================================================================================
+
+    ; Check if spindle has stoped
+
+    ; =======================================================================================================
+    ; orient spindle
+    S30
+    M3 (spindle on)
+	G53 G0 F#<feed> Z[#<lower_change_pos> + 10]
+	G53 G1 F#<feed> Z[#<lower_change_pos> + 5]
+    M64 P2 (lock spindle)
+    M66 P4 L4 Q5 (wait 5 seconds for lock pin)
+    M5
+
+    ; =======================================================================================================
+    ; check if spindle is oriented 
+    O<spindle_oriented> if[#5399 LT 0]
+        (PRINT, orient timeout)
+		(DEBUG, 5399 = #5399)
+        M65 P2 (unlock spindle)
+		G1 Z-110		
+		M66 P0 L0
+        O<spindle_oriented> return[-103]
+    O<spindle_oriented> endif
+
+    ; =======================================================================================================
+    ; do we need to drop a tool
+    O<need_dropping> if [#<tool_in_spindle> NE 0]
+		; Go up to tool change position
+		G53 G1 F#<feed> Z[#<lower_change_pos>]
+
+        (disable carousel)
+        M65 P4
+        G4 P0.1 (wait)
+        (turn carousel to old tool)
+        M68 E0 Q[#<tool_in_spindle>]
+        G4 P0.1 (wait)
+        M64 P4 (enable carousel)
+        G4 P0.1 (wait)
+        (wait for carousel)
+        M66 P3 L4 Q15
+        M65 P4 (disable carousel)
+        O<move_carousel_0> if[#5399 eq -1]
+            (PRINT, carousel move timeout)
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<m6> return [-104]
+        O<move_carousel_0> endif
+        (disable carousel)
+        M65 P4
+        G4 P0.1 (wait)
+        
+        ; now drop the tool
+        M64 P1 (shuttle in)
+        M66 P0 L3 Q5 (wait for shuttle in move)
+        M65 P4 (disable carousel)
+        O<shuttle_right> if[#5399 eq 0]
+            (PRINT, shuttle in failed)
+            M65 P1 (shuttle in stop)
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<m6> return [-105]
+        O<shuttle_right> endif
+
+        M65 P1 (shuttle in stop)
+
+        M64 P3 (unclamp tool)
+        M66 P5 L4 Q5 (wait 5 seconds for unclamp)
+        M65 P4 (disable carousel)
+        O<tool_unclamped> if[#5399 lt 0]
+            M65 P3 (clamp tool)
+            M65 P1 (shuttle in stop)
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<m6> return [-106]
+        O<tool_unclamped> endif
+
+        G53 G1 F#<feed> Z0
+        M65 P3 (clamp tool)
+    O<need_dropping> endif
+
+    ; =======================================================================================================
+
+    ; do we need to pick a tool
+    O<need_picking> if [#<selected_tool> NE 0]
+		G53 G1 F#<feed> Z0
+        (turn carousel to new tool)
+        M68 E0 Q[#<selected_tool>]
+        G4 P0.1 (wait)
+        M64 P4 (enable carousel)
+        G4 P0.1 (wait)
+        (wait for carousel)
+        M66 P3 L4 Q15
+        M65 P4 (disable carousel)
+        O<move_carousel_1> if[#5399 EQ -1]
+            (PRINT, carousel move timeout)
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<move_carousel_1> return [-107]
+        O<move_carousel_1> endif
+
+		; check if shuttle is in right position
+        M66 P0 L0
+		
+		O<shuttle_is_right> if[#5399 EQ 0]
+		    M64 P1 (shuttle in)
+		    M66 P0 L3 Q5 (wait for shuttle in move)
+		    M65 P1
+		    O<shuttle_right2> if[#5399 EQ 0]
+		        (PRINT, shuttle in failed)
+		        M65 P1 (shuttle in stop)
+		        M65 P2 (unlock spindle)
+				M66 P0 L0
+		        O<m6> return [-108]
+		    O<shuttle_right2> endif
+		O<shuttle_is_right> endif
+
+        M64 P3 (unclamp tool)
+        M66 P5 L4 Q5 (wait 5 seconds for unclamp)
+        O<tool_unclamped_1> if[#5399 LT 0]
+            M65 P3 (clamp tool)
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<m6> return [-109]
+        O<tool_unclamped_1> endif
+
+        G53 G1 F[#<feed>] Z[#<lower_change_pos>]
+
+        M65 P3 (clamp tool)
+        M66 P5 L3 Q5
+        O<tool_clamped> if[#5399 LT 0]
+            M65 P2 (unlock spindle)
+			M66 P0 L0
+            O<m6> return [-110]
+        O<tool_clamped> endif
+
+    O<need_picking> endif
+
+    ; =======================================================================================================
+    ; move shuttle left
+    M64 P0 (shuttle left)
+    M66 P1 L3 Q5 (wait for shuttle out move)
+    M65 P0 (shuttle out stop)
+    O<shuttle_parked_1> if[#5399 EQ 0]
+        (PRINT, shuttle out failed)
+		M66 P0 L0
+        O<m6> return [-111]
+    O<shuttle_parked_1> endif
+
+    ; =======================================================================================================
+    ; unlock spindle
+    M65 P2
+    M66 P4 L3 Q5 (wait 5 seconds for lock pin)
+    O<spindle_unlocked> if[#5399 EQ 0]
+		M66 P0 L0
+        O<m6> return [-112]
+    O<spindle_unlocked> endif
+
+O<m6> endsub [1]
+
+M2
+

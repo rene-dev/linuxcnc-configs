@@ -1,0 +1,11 @@
+loadrt abs names=abs_spindle_feedback
+addf abs_spindle_feedback servo-thread
+
+net svelfb-rpm  =>  abs_spindle_feedback.in
+net spindle-abs  abs_spindle_feedback.out  =>  gmoccapy.spindle_feedback_bar
+
+net atspeed  =>  gmoccapy.spindle_at_speed_led
+
+net tooloffset-x  gmoccapy.tooloffset-x  <=  motion.tooloffset.x
+net tooloffset-z  gmoccapy.tooloffset-z  <=  motion.tooloffset.z
+

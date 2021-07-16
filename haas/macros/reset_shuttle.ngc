@@ -1,0 +1,12 @@
+O<reset_shuttle> sub
+
+	M64 P0 (shuttle out)
+	m66 P1 L3 Q1 (wait for shuttle out move)
+	M65 P0 (shuttle out stop)
+	M66 P0 L0
+
+	G91 G1 F100 X-0.001
+	G91 G1 F100 X0.001
+
+O<reset_shuttle> endsub
+m2

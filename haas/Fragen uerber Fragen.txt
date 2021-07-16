@@ -1,0 +1,12 @@
+Wechsler offene Fragen
+
+- Wie prüfen, dass die Spindel wirklich steht?
+- Mit Kühlung wechseln, oder ohne?
+- Was passiert wenn Werkzeug -4 angefordert wird?
+- Was passiert wenn Werkzeug 24 angefordert wird?
+- Wie erkennen wir, dass ein Werkzeug von hand eingeführt wurde und nun nicht in den Wechsler darf?
+
+
+EMBED_TAB_NAME = left_side_panel
+EMBED_TAB_LOCATION = box_right
+EMBED_TAB_COMMAND = gladevcp -x {XID} debug.glade

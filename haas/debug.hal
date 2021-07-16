@@ -1,0 +1,36 @@
+net sdclink => debug.ampl_enable
+net changerpos debug.changer_pos
+net toolrelease-man or2.0.in0 <= debug.tool_unclamp
+net tinc debug.changer_plus => carousel.0.jog-fwd
+net tdec debug.changer_minus => carousel.0.jog-rev
+net spindle_lock_fb debug.spindle_locked_led
+net toolrelease_fb debug.tool_unclamped_led
+net shinfb debug.shuttle_in_led
+net shoutfb debug.shuttle_out_led
+
+
+#net toolrelease-man or2.0.in0 <= pyvcp.toolrelease
+#net sdclink <= pyvcp.chbutton-sample
+#net svelfb-rpm => pyvcp.spindle-speed
+#net atspeed => pyvcp.spindle-at-speed
+#net ssreset <= pyvcp.ssreset
+
+#net r1 pyvcp.t1 hm2_7i92.0.stbl.1.4.out-00
+#net r2 pyvcp.t2 hm2_7i92.0.stbl.1.4.out-01
+#net r3 pyvcp.t3 hm2_7i92.0.stbl.1.4.out-02
+#net r4 pyvcp.t4 hm2_7i92.0.stbl.1.4.out-03
+
+#net shin pyvcp.t1 => hm2_7i92.0.7i84.1.5.output-00
+#net shout pyvcp.t2 => hm2_7i92.0.7i84.1.5.output-01
+#net tinc pyvcp.jog-fwd => carousel.0.jog-fwd
+#net tdec pyvcp.jog-rev => carousel.0.jog-rev
+#net changerpos => pyvcp.changerpos
+
+#net sidx pyvcp.s1
+#net spuls pyvcp.s2
+#net s1 pyvcp.s1 <= hm2_7i92.0.7i84.1.5.input-00
+#net s2 pyvcp.s2 <= hm2_7i92.0.7i84.1.5.input-01
+#net s3 pyvcp.s3 <= hm2_7i92.0.7i84.1.5.input-02
+#net s4 pyvcp.s4 <= hm2_7i92.0.7i84.1.5.input-03
+#net s5 pyvcp.s5 <= hm2_7i92.0.7i84.1.5.input-04
+#net s6 pyvcp.s6 <= hm2_7i92.0.7i84.1.5.input-05
